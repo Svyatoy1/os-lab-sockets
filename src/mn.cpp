@@ -51,7 +51,7 @@ Worker start_worker(const char* prog_path) {
 }
 
 // synchronical call fn(x) via socket, return FnResult
-FnResult call_over_socket(ipc::Fd fd, int x) {
+FnResult call_over_socket(ipc::Fd fd, double x) {
     std::string req = "REQ " + std::to_string(x);
     if (!ipc::send_message(fd, req)) {
         FnResult r;
@@ -85,11 +85,50 @@ FnResult call_over_socket(ipc::Fd fd, int x) {
         std::getline(iss, msg);
         if (!msg.empty() && msg[0] == ' ') msg.erase(0, 1);
         r.value = msg;
+    } else if (tag == "UNDEF") {
+        r.status = FnStatus::Undefined;
+        std::string msg;
+        std::getline(iss, msg);
+        if (!msg.empty() && msg[0] == ' ') msg.erase(0, 1);
+        r.value = msg;
     } else {
         r.status = FnStatus::Undefined;
         r.value  = reply;
-    }
+}
     return r;
+}
+
+// combination fn1(x) ⊗ fn2(x) as sum of doubles
+FnResult combine(const FnResult& r1, const FnResult& r2) {
+    FnResult out;
+
+    // if we get fail, we return fail (bitwise "OR" by status ideas)
+    if (r1.status == FnStatus::Fail || r2.status == FnStatus::Fail) {
+        out.status = FnStatus::Fail;
+        out.value  = "fn1=" + r1.value + "; fn2=" + r2.value;
+        return out;
+    }
+
+    // if we get even one undefined and no fail, we return undefined
+    if (r1.status == FnStatus::Undefined || r2.status == FnStatus::Undefined) {
+        out.status = FnStatus::Undefined;
+        out.value  = "fn1=" + r1.value + "; fn2=" + r2.value;
+        return out;
+    }
+
+    // if we get two OK we try to get double values and conclude
+    auto v1 = as_double(r1);
+    auto v2 = as_double(r2);
+    if (!v1.has_value() || !v2.has_value()) {
+        out.status = FnStatus::Fail;
+        out.value  = "parse_error";
+        return out;
+    }
+
+    double sum = *v1 + *v2;
+    out.status = FnStatus::Ok;
+    out.value  = std::to_string(sum);
+    return out;
 }
 
 int main() {
@@ -104,25 +143,27 @@ int main() {
         if (!std::getline(std::cin, line)) break;
         if (line == "q" || line == "quit") break;
 
-        int x = 0;
+        double x = 0.0;
         try {
-            x = std::stoi(line);
+            x = std::stod(line);
         } catch (...) {
-            std::cerr << "Invalid integer, try again.\n";
+            std::cerr << "Invalid number, try again.\n";
             continue;
         }
 
-        // assynchronucally launching two tasks, each blocks on own socket
         auto t1 = Task<FnResult>::start([&]() { return call_over_socket(w1.fd, x); });
         auto t2 = Task<FnResult>::start([&]() { return call_over_socket(w2.fd, x); });
 
         FnResult r1 = t1.get();
         FnResult r2 = t2.get();
 
-        // ⊗ = concatenction
-        std::string combined = r1.value + " ⊗ " + r2.value;
+        FnResult comb = combine(r1, r2);
 
-        std::cout << "Mn: result = " << combined << "\n";
+        std::cout << "Mn: fn1(x) = [" << r1.value << "], status=" << status_to_string(r1.status)
+          << "; fn2(x) = [" << r2.value << "], status=" << status_to_string(r2.status) << "\n";
+
+        std::cout << "Mn: combined (⊗ = sum) => status=" << status_to_string(comb.status)
+                << ", value = " << comb.value << "\n";
     }
 
     // closing sockets and waiting childs

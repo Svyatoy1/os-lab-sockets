@@ -11,7 +11,7 @@ class Task {
 public:
     Task() = default;
 
-    // launch of assynchrоnic computation in the thread
+    // launch of assynchrоnal computation in the thread
     template<typename F>
     static Task start(F&& func) {
         Task t;

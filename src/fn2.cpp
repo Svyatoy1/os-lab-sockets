@@ -1,17 +1,23 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <cmath>
 
 #include "common.hpp"
 #include "ipc.hpp"
 
 static constexpr ipc::Fd FN_FD = 3;
 
-// приклад fn2(x): x * 2
-static FnResult compute(int x) {
+// fn2(x): sqrt(|x|), if x == 0 we consider as undefined
+static FnResult compute(double x) {
     FnResult r;
+    if (x == 0.0) {
+        r.status = FnStatus::Undefined;
+        r.value  = "no_meaning_for_zero";
+        return r;
+    }
     r.status = FnStatus::Ok;
-    r.value  = std::to_string(x * 2);
+    r.value  = std::to_string(std::sqrt(std::fabs(x)));
     return r;
 }
 
@@ -27,7 +33,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
             continue;
         }
 
-        int x;
+        double x;
         if (!(iss >> x)) {
             ipc::send_message(FN_FD, "FAIL bad_input");
             continue;
@@ -40,7 +46,7 @@ int main(int /*argc*/, char* /*argv*/[]) {
         } else if (r.status == FnStatus::Fail) {
             ipc::send_message(FN_FD, "FAIL " + r.value);
         } else {
-            ipc::send_message(FN_FD, "UNDEF");
+            ipc::send_message(FN_FD, "UNDEF " + r.value);
         }
     }
 

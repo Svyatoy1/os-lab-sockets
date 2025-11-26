@@ -21,7 +21,7 @@ inline void make_socket_pair(Fd sv[2]) {
     }
 }
 
-// Відправити рядок (з \n в кінці) у дескриптор.
+// send row (with \n in the end) in descriptor.
 inline bool send_message(Fd fd, const std::string& msg) {
     std::string data = msg;
     data.push_back('\n');
@@ -40,7 +40,7 @@ inline bool send_message(Fd fd, const std::string& msg) {
     return true;
 }
 
-// Прочитати один рядок до \n (спрощений протокол).
+// read one row to \n (simplified protocol).
 inline bool recv_line(Fd fd, std::string& out) {
     out.clear();
     char ch;

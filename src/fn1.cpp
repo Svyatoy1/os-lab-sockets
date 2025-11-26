@@ -1,18 +1,24 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <cmath>
 
 #include "common.hpp"
 #include "ipc.hpp"
 
-// fd, через який цей процес спілкується з Mn
+// via fd process connected with Mn
 static constexpr ipc::Fd FN_FD = 3;
 
-// приклад fn1(x): просто x + 1
-static FnResult compute(int x) {
+// fn1(x): x^2, if |x| > 1000 we consider as fail
+static FnResult compute(double x) {
     FnResult r;
+    if (std::fabs(x) > 1000.0) {
+        r.status = FnStatus::Fail;
+        r.value  = "x_out_of_range";
+        return r;
+    }
     r.status = FnStatus::Ok;
-    r.value  = std::to_string(x + 1);
+    r.value  = std::to_string(x * x);
     return r;
 }
 
@@ -25,11 +31,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
         iss >> cmd;
 
         if (cmd != "REQ") {
-            // ігноруємо невідомі команди
             continue;
         }
 
-        int x;
+        double x;
         if (!(iss >> x)) {
             ipc::send_message(FN_FD, "FAIL bad_input");
             continue;
@@ -46,6 +51,5 @@ int main(int /*argc*/, char* /*argv*/[]) {
         }
     }
 
-    // EOF з боку Mn — виходимо
     return 0;
 }
