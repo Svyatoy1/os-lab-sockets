@@ -166,6 +166,10 @@ int main() {
                 << ", value = " << comb.value << "\n";
     }
 
+    // sending STOP that workers stop cycle and out
+    ipc::send_message(w1.fd, "STOP");
+    ipc::send_message(w2.fd, "STOP");
+
     // closing sockets and waiting childs
     ::close(w1.fd);
     ::close(w2.fd);

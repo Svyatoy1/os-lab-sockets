@@ -29,6 +29,10 @@ int main(int /*argc*/, char* /*argv*/[]) {
         std::string cmd;
         iss >> cmd;
 
+        if (cmd == "STOP") {
+            break;
+        }
+
         if (cmd != "REQ") {
             continue;
         }
